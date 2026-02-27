@@ -1,0 +1,19 @@
+# Custom GEMM kernels loaded at runtime.
+# Paths are relative to the library directory (getCoPath() or getCoPath()/library).
+# Add new kernels here and ensure the .co file is in the custom_kernels directory (or subdir).
+kernels:
+  - name: wave_gemm_mxfp4_dbuf_4wave_MT256x256x256
+    path: wave_gemm_mxfp4_dbuf_4wave_MT256x256x256.co
+    workgroup_size: [256, 256, 256]
+    entry_function: gemm
+    kernel_type: mxfp4
+  - name: wave_gemm_mxfp4_dbuf_4wave_MT128x256x256
+    path: wave_gemm_mxfp4_dbuf_4wave_MT128x256x256.co
+    workgroup_size: [128, 256, 256]
+    entry_function: gemm
+    kernel_type: mxfp4
+  - name: wave_gemm_mxfp4_dbuf_4wave_MT128x128x256
+    path: wave_gemm_mxfp4_dbuf_4wave_MT128x128x256.co
+    workgroup_size: [128, 128, 256]
+    entry_function: gemm
+    kernel_type: mxfp4

@@ -2,10 +2,16 @@
 // SPDX-License-Identifier: MIT
 
 #include "custom_kernels.hpp"
+#include "custom_kernel_registry.hpp"
 
 #include <hip/hip_ext.h>
 #include <hip/hip_runtime.h>
 #include <iostream>
+
+#ifdef HIPBLASLT_ROCROLLER_USE_YAML_CPP
+#include <yaml-cpp/yaml.h>
+#include <fstream>
+#endif
 
 std::shared_ptr<GemmKernel> createCustomGemmKernel(const std::string&           customKernelName,
                                                    const KernelType&            kernelType,
@@ -61,373 +67,153 @@ std::filesystem::path getCoPath()
     return libraryPath;
 }
 
-// Add all custom kernels to the SolutionCache
-// Need to specify the KernelType and SolutionIndexParameters
-void preloadCustomKernels(SolutionCache& cache)
+namespace
 {
-    KernelType mxfp4Kernel;
-    mxfp4Kernel.typeA                     = rocRoller::DataType::FP4;
-    mxfp4Kernel.typeB                     = rocRoller::DataType::FP4;
-    mxfp4Kernel.typeC                     = rocRoller::DataType::BFloat16;
-    mxfp4Kernel.typeD                     = rocRoller::DataType::BFloat16;
-    mxfp4Kernel.transA                    = true;
-    mxfp4Kernel.transB                    = false;
-    mxfp4Kernel.scaleTypeA.mode           = rocRoller::Operations::ScaleMode::Separate;
-    mxfp4Kernel.scaleTypeA.blockRowSize   = 32;
-    mxfp4Kernel.scaleTypeA.blockColSize   = 1;
-    mxfp4Kernel.scaleTypeA.preSwizzleTile = {32, 8, 4};
-    mxfp4Kernel.scaleTypeA.preTile        = {32, 8};
-    mxfp4Kernel.scaleTypeB.mode           = rocRoller::Operations::ScaleMode::Separate;
-    mxfp4Kernel.scaleTypeB.blockRowSize   = 1;
-    mxfp4Kernel.scaleTypeB.blockColSize   = 32;
-    mxfp4Kernel.scaleTypeB.preSwizzleTile = {32, 8, 4};
-    mxfp4Kernel.scaleTypeB.preTile        = {8, 32};
-
-    SolutionIndexParameters params;
-
-    params.streamK   = false;
-    params.tailLoops  = true;  // match chooseSolutionIndexParameters
-
-    std::vector<WorkGroupTileSize> wave_workgroup_sizes
-        = {{128, 128, 256}, {256, 256, 256}, {128, 256, 256}};
-
-    // Add each Wave kernel for both workgroupMapping=true and false so cache lookup
-    // matches what chooseSolutionIndexParameters returns (true when prob.k >= 4096).
-    for(const auto& block : wave_workgroup_sizes)
+    KernelType getKernelTypePresetMxfp4()
     {
-        std::string kernelName
-            = fmt::format("wave_gemm_mxfp4_dbuf_4wave_MT{}x{}x{}", block.m, block.n, block.k);
-
-        // Wave code objects export the kernel as "gemm", not the file base name.
-        auto kernel = createCustomGemmKernel(kernelName,
-                                             mxfp4Kernel,
-                                             block,
-                                             getCoPath() / (kernelName + ".co"),
-                                             "gemm");
-
-        params.workgroupTile = block;
-        params.workgroupMapping = false;
-        cache.addKernel(mxfp4Kernel, params, kernel);
-        params.workgroupMapping = true;
-        cache.addKernel(mxfp4Kernel, params, kernel);
+        KernelType k;
+        k.typeA                     = rocRoller::DataType::FP4;
+        k.typeB                     = rocRoller::DataType::FP4;
+        k.typeC                     = rocRoller::DataType::BFloat16;
+        k.typeD                     = rocRoller::DataType::BFloat16;
+        k.transA                    = true;
+        k.transB                    = false;
+        k.scaleTypeA.mode           = rocRoller::Operations::ScaleMode::Separate;
+        k.scaleTypeA.blockRowSize   = 32;
+        k.scaleTypeA.blockColSize   = 1;
+        k.scaleTypeA.preSwizzleTile = {32, 8, 4};
+        k.scaleTypeA.preTile        = {32, 8};
+        k.scaleTypeB.mode           = rocRoller::Operations::ScaleMode::Separate;
+        k.scaleTypeB.blockRowSize   = 1;
+        k.scaleTypeB.blockColSize   = 32;
+        k.scaleTypeB.preSwizzleTile = {32, 8, 4};
+        k.scaleTypeB.preTile        = {8, 32};
+        return k;
     }
 
-    // for(bool streamK : {false, true})
-    // {
-    //     for(bool tailLoops : {false, true})
-    //     {
-    //         for(bool workgroupMapping : {false, true})
-    //         {
-    //             params.streamK          = streamK;
-    //             params.tailLoops        = tailLoops;
-    //             params.workgroupMapping = workgroupMapping;
+    KernelType getKernelTypeFromPresetName(const std::string& name)
+    {
+        if(name == "mxfp4")
+            return getKernelTypePresetMxfp4();
+        // Default to mxfp4 for backward compatibility
+        return getKernelTypePresetMxfp4();
+    }
 
-    //             // 32xN kernels
-    //             params.workgroupTile = {32, 128, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x128E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_32x128.co"));
+    std::filesystem::path resolveKernelPath(const std::filesystem::path& basePath,
+                                            const std::string&            pathStr)
+    {
+        std::filesystem::path p(pathStr);
+        if(p.is_absolute())
+            return p;
+        // Try basePath / path and basePath / "library" / path (build layout)
+        std::filesystem::path inBase = basePath / pathStr;
+        if(std::filesystem::exists(inBase))
+            return inBase;
+        std::filesystem::path inLibrary = basePath / "library" / pathStr;
+        if(std::filesystem::exists(inLibrary))
+            return inLibrary;
+        return inBase; // let loader report missing file
+    }
+} // namespace
 
-    //             params.workgroupTile = {32, 256, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x256E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_32x256.co"));
+#ifdef HIPBLASLT_ROCROLLER_USE_YAML_CPP
+static std::filesystem::path findCustomKernelsYaml()
+{
+    std::filesystem::path base = getCoPath();
+    std::filesystem::path inLibrary = base / "library" / "custom_kernels.yaml";
+    if(std::filesystem::exists(inLibrary))
+        return inLibrary;
+    std::filesystem::path inBase = base / "custom_kernels.yaml";
+    if(std::filesystem::exists(inBase))
+        return inBase;
+    return {};
+}
+#endif
 
-    //             params.workgroupTile = {32, 384, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x384E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_32x384.co"));
+// Add all custom kernels to the SolutionCache from kernels.yaml (when yaml-cpp available).
+void preloadCustomKernels(SolutionCache& cache)
+{
+#ifdef HIPBLASLT_ROCROLLER_USE_YAML_CPP
+    std::filesystem::path yamlPath = findCustomKernelsYaml();
+    if(yamlPath.empty())
+    {
+        std::cout << "custom_kernels: no custom_kernels.yaml found, skipping custom kernel load"
+                  << std::endl;
+        return;
+    }
 
-    //             params.workgroupTile = {32, 512, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x512E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_32x512.co"));
+    YAML::Node root;
+    try
+    {
+        root = YAML::LoadFile(yamlPath.string());
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << "custom_kernels: failed to load " << yamlPath << ": " << e.what() << std::endl;
+        return;
+    }
 
-    //             params.workgroupTile = {32, 640, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x640E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_32x640.co"));
+    const YAML::Node kernels = root["kernels"];
+    if(!kernels || !kernels.IsSequence())
+    {
+        std::cerr << "custom_kernels: missing or invalid 'kernels' sequence in " << yamlPath
+                  << std::endl;
+        return;
+    }
 
-    //             params.workgroupTile = {32, 768, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x768E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_32x768.co"));
+    std::filesystem::path basePath = getCoPath();
 
-    //             params.workgroupTile = {32, 896, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x896E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_32x896.co"));
+    SolutionIndexParameters params;
+    params.streamK       = false;
+    params.tailLoops     = true;
 
-    //             params.workgroupTile = {32, 1024, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_32x1024E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_32x1024.co"));
+    for(size_t i = 0; i < kernels.size(); ++i)
+    {
+        const YAML::Node& entry = kernels[i];
+        if(!entry["name"] || !entry["path"] || !entry["workgroup_size"])
+        {
+            std::cerr << "custom_kernels: entry " << i << " missing name/path/workgroup_size"
+                      << std::endl;
+            continue;
+        }
 
-    //             params.workgroupTile = {64, 256, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x256E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_64x256.co"));
+        std::string name = entry["name"].as<std::string>();
+        std::string pathStr = entry["path"].as<std::string>();
+        std::string entryFunction = entry["entry_function"] ? entry["entry_function"].as<std::string>() : name;
+        std::string kernelTypePreset = entry["kernel_type"] ? entry["kernel_type"].as<std::string>() : "mxfp4";
 
-    //             params.workgroupTile = {64, 384, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x384E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_64x384.co"));
+        if(!entry["workgroup_size"].IsSequence() || entry["workgroup_size"].size() != 3)
+        {
+            std::cerr << "custom_kernels: entry " << i << " workgroup_size must be [m, n, k]"
+                      << std::endl;
+            continue;
+        }
+        WorkGroupTileSize wgt;
+        wgt.m = entry["workgroup_size"][0].as<int>();
+        wgt.n = entry["workgroup_size"][1].as<int>();
+        wgt.k = entry["workgroup_size"][2].as<int>();
 
-    //             params.workgroupTile = {64, 512, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x512E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_64x512.co"));
+        KernelType kernelType = getKernelTypeFromPresetName(kernelTypePreset);
+        std::filesystem::path resolvedPath = resolveKernelPath(basePath, pathStr);
 
-    //             params.workgroupTile = {64, 640, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x640E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_64x640.co"));
+        registerCustomKernelWorkgroupSize(kernelType, wgt);
 
-    //             params.workgroupTile = {64, 768, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x768E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_64x768.co"));
+        auto kernel = createCustomGemmKernel(name, kernelType, wgt, resolvedPath, entryFunction);
 
-    //             params.workgroupTile = {64, 896, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x896E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_64x896.co"));
-
-    //             params.workgroupTile = {64, 1024, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_64x1024E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_64x1024.co"));
-
-    //             // 96xN kernels
-    //             params.workgroupTile = {96, 128, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x128E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_96x128.co"));
-
-    //             params.workgroupTile = {96, 256, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x256E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_96x256.co"));
-
-    //             params.workgroupTile = {96, 384, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x384E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_96x384.co"));
-
-    //             params.workgroupTile = {96, 512, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x512E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_96x512.co"));
-
-    //             params.workgroupTile = {96, 640, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x640E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_96x640.co"));
-
-    //             // 128xN kernels
-    //             params.workgroupTile = {128, 128, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_128x128E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_128x128.co"));
-
-    //             params.workgroupTile = {128, 256, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_128x256E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_128x256.co"));
-
-    //             params.workgroupTile = {128, 384, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_128x384E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_128x384.co"));
-
-    //             params.workgroupTile = {128, 512, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_128x512E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_128x512.co"));
-
-    //             // 160xN kernels
-    //             params.workgroupTile = {160, 128, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_160x128E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_160x128.co"));
-
-    //             params.workgroupTile = {160, 256, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_160x256E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_160x256.co"));
-
-    //             params.workgroupTile = {160, 384, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_160x384E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_160x384.co"));
-
-    //             // 192xN kernels
-    //             params.workgroupTile = {192, 128, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_192x128E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_192x128.co"));
-
-    //             params.workgroupTile = {192, 256, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_192x256E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_192x256.co"));
-
-    //             // 224xN kernels
-    //             params.workgroupTile = {224, 128, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_224x128E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_224x128.co"));
-
-    //             params.workgroupTile = {224, 256, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_224x256E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_224x256.co"));
-
-    //             // 256xN kernels
-    //             params.workgroupTile = {256, 128, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_256x128E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_256x128.co"));
-
-    //             params.workgroupTile = {256, 256, 256};
-    //             cache.addKernel(mxfp4Kernel,
-    //                             params,
-    //                             createCustomGemmKernel(
-    //                                 "_ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256E",
-    //                                 mxfp4Kernel,
-    //                                 params.workgroupTile,
-    //                                 getCoPath() / "f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256.co"));
-    //         }
-    //     }
-    // }
+        for (bool workgroupMapping : {false, true}) {
+            for (bool streamK : {false, true}) {
+                params.workgroupTile = wgt;
+                params.workgroupMapping = workgroupMapping;
+                params.streamK = streamK;
+                params.tailLoops = true;
+                cache.addKernel(kernelType, params, kernel);
+            }
+        }
+    }
+#else
+    (void)cache;
+    std::cout << "custom_kernels: yaml-cpp not available, skipping custom kernel load" << std::endl;
+#endif
 }
 
 // F4 GEMM Kernel Args

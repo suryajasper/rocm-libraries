@@ -7,6 +7,7 @@ add_subdirectory(custom_kernels)
 
 target_sources(hipblaslt-rocroller
     PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/custom_kernel_registry.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/custom_kernels.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/gemm.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/parameter_selection.cpp"
@@ -25,6 +26,11 @@ else()
     target_link_libraries(hipblaslt-rocroller PRIVATE roc::rocroller_interface)
 endif()
 target_link_libraries(hipblaslt-rocroller PRIVATE hip::host roc::hipblas-common)
+# yaml-cpp for parsing custom_kernels/kernels.yaml (optional; preload falls back if missing)
+if(TARGET yaml-cpp::yaml-cpp)
+    target_link_libraries(hipblaslt-rocroller PRIVATE yaml-cpp::yaml-cpp)
+    target_compile_definitions(hipblaslt-rocroller PRIVATE HIPBLASLT_ROCROLLER_USE_YAML_CPP)
+endif()
 target_compile_definitions(hipblaslt-rocroller PRIVATE HIPBLASLT_USE_ROCROLLER)
 target_include_directories(hipblaslt-rocroller
     PRIVATE

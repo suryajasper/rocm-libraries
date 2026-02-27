@@ -5,7 +5,7 @@ cmake \
     -DCMAKE_C_COMPILER=/opt/rocm/bin/amdclang \
     -DCMAKE_PREFIX_PATH=/opt/rocm \
     -S /workspace/rocm-libraries/projects/hipblaslt/ \
-    -B . \
+    -B ./build/ \
     -G Ninja \
     -DGPU_TARGETS=gfx950 \
     -DHIPBLASLT_ENABLE_BLIS=0 \

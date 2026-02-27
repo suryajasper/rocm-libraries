@@ -3,6 +3,7 @@
 
 #include "solution_selection.hpp"
 #include "analytical_utils.hpp"
+#include "custom_kernel_registry.hpp"
 #include "kernel_type.hpp"
 #include "runtime_args_selection.hpp"
 
@@ -153,11 +154,67 @@ std::vector<origami::config_t> getTileListForKernelType(const KernelType& kernel
     // Standard path: look up generator in map
     auto key = std::make_pair(kernelType.typeA, kernelType.typeB);
     auto it  = tileListGenerators.find(key);
+    std::vector<origami::config_t> tileList;
+    bool hasPreSwizzle = (kernelType.scaleTypeA.preSwizzleTile.size() == 3
+                          && kernelType.scaleTypeB.preSwizzleTile.size() == 3);
+    bool hasPreTile
+        = (kernelType.scaleTypeA.preTile.size() == 2 && kernelType.scaleTypeB.preTile.size() == 2);
+
     if(it != tileListGenerators.end())
     {
-        return it->second(hasPreSwizzle, hasPreTile);
+        tileList = it->second(hasPreSwizzle, hasPreTile);
     }
-    throw std::runtime_error("Unsupported DataType combination");
+
+    // Merge custom kernel workgroup sizes from YAML so they can be ranked and selected
+    std::vector<WorkGroupTileSize> customSizes = getCustomKernelWorkgroupSizes(kernelType);
+    size_t preSwizzleTileMN = hasPreSwizzle && !kernelType.scaleTypeA.preSwizzleTile.empty()
+                                  ? kernelType.scaleTypeA.preSwizzleTile[0]
+                                  : 0;
+    for(const auto& wgt : customSizes)
+    {
+        // Skip if already in tile list (avoid duplicates)
+        bool duplicate = false;
+        for(const auto& c : tileList)
+        {
+            if(c.mt.m == static_cast<size_t>(wgt.m) && c.mt.n == static_cast<size_t>(wgt.n))
+            {
+                duplicate = true;
+                break;
+            }
+        }
+        if(duplicate)
+            continue;
+
+        auto MI = pickMI(kernelType.typeA, kernelType.typeB, wgt, preSwizzleTileMN);
+        int wgtk = wgt.k;
+        if(kernelType.typeA == rocRoller::DataType::Half
+           || kernelType.typeA == rocRoller::DataType::BFloat16
+           || kernelType.typeA == rocRoller::DataType::Float)
+        {
+            wgtk = 32;
+        }
+        if(hasPreSwizzle && hasPreTile)
+        {
+            wgtk = 256;
+        }
+        int unroll = preferredUnrolling(
+            kernelType.typeA, kernelType.typeB, wgt, hasPreSwizzle, hasPreTile);
+
+        origami::config_t origami_config = {
+            .mt = {static_cast<size_t>(wgt.m),
+                   static_cast<size_t>(wgt.n),
+                   static_cast<size_t>(wgtk * unroll)},
+            .mi = {static_cast<size_t>(MI.m), static_cast<size_t>(MI.n), static_cast<size_t>(MI.k)},
+            .occupancy     = 1,
+            .cache_hints_a = 0,
+            .cache_hints_b = 0,
+        };
+        tileList.push_back(origami_config);
+    }
+
+    if(tileList.empty() && it == tileListGenerators.end())
+        throw std::runtime_error("Unsupported DataType combination");
+    return tileList;
 }
 
 /**
