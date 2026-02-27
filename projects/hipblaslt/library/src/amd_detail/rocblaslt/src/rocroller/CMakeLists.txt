@@ -35,4 +35,22 @@ target_include_directories(hipblaslt-rocroller
         "${PROJECT_SOURCE_DIR}/library/include"
         "${PROJECT_SOURCE_DIR}/tensilelite/include"
 )
-target_link_libraries(hipblaslt PRIVATE hipblaslt-rocroller)
+# OBJECT library link dependencies are not propagated in CMake; hipblaslt must
+# link rocroller explicitly so symbols like Operations::Tensor are resolved.
+if(TARGET roc::rocroller-interface)
+    target_link_libraries(hipblaslt PRIVATE hipblaslt-rocroller roc::rocroller-interface)
+else()
+    target_link_libraries(hipblaslt PRIVATE hipblaslt-rocroller roc::rocroller_interface)
+endif()
+# Ensure the in-tree librocroller is found at runtime (e.g. when using add_subdirectory
+# rocroller). The system /opt/rocm librocroller may lack the 4-arg Operations::Tensor
+# constructor, causing "undefined symbol" when the wrong lib is loaded.
+if(NOT ROCM_LIBS_SUPERBUILD AND TARGET rocroller)
+    get_target_property(_hipblaslt_rpath hipblaslt BUILD_RPATH)
+    if(NOT _hipblaslt_rpath)
+        set(_hipblaslt_rpath "")
+    endif()
+    list(APPEND _hipblaslt_rpath "${CMAKE_BINARY_DIR}/rocroller")
+    set_target_properties(hipblaslt PROPERTIES BUILD_RPATH "${_hipblaslt_rpath}")
+    unset(_hipblaslt_rpath)
+endif()

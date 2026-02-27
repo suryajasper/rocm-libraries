@@ -1,0 +1,17 @@
+cmake \
+    -DCMAKE_INSTALL_PREFIX=${PWD}/install \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_CXX_COMPILER=/opt/rocm/bin/amdclang++ \
+    -DCMAKE_C_COMPILER=/opt/rocm/bin/amdclang \
+    -DCMAKE_PREFIX_PATH=/opt/rocm \
+    -S /workspace/rocm-libraries/projects/hipblaslt/ \
+    -B . \
+    -G Ninja \
+    -DGPU_TARGETS=gfx950 \
+    -DHIPBLASLT_ENABLE_BLIS=0 \
+    -DPython3_EXECUTABLE=$(which python) \
+    -DHIPBLASLT_BUILD_SHARED_LIBS=1 \
+    -DHIPBLASLT_ENABLE_CLIENT=1 \
+    -DHIPBLASLT_ENABLE_DEVICE=1 \
+    -DHIPBLASLT_ENABLE_HOST=1 \
+    -DHIPBLASLT_ENABLE_ROCROLLER=1

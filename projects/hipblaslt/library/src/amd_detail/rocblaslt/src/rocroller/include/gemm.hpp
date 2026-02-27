@@ -17,10 +17,14 @@
 class GemmHipModuleWrapper
 {
 public:
-    GemmHipModuleWrapper(const std::string& functionName, const std::string& path)
+    // If symbolNameForLoad is empty, functionName is used for both display and hipModuleGetFunction.
+    GemmHipModuleWrapper(const std::string& functionName,
+                         const std::string& path,
+                         const std::string& symbolNameForLoad = "")
         : customModuleLoaded(false)
         , customKernelName(functionName)
         , customModulePath(path)
+        , customSymbolName(symbolNameForLoad.empty() ? functionName : symbolNameForLoad)
     {
     }
 
@@ -57,7 +61,7 @@ public:
                 return error;
             }
         }
-        return hipModuleGetFunction(&function, module, customKernelName.c_str());
+        return hipModuleGetFunction(&function, module, customSymbolName.c_str());
     }
 
     std::string getKernelName() const
@@ -67,8 +71,9 @@ public:
 
 private:
     bool        customModuleLoaded;
-    std::string customKernelName;
+    std::string customKernelName;   // display name (e.g. wave_gemm_mxfp4_dbuf_4wave_MT256x256x256)
     std::string customModulePath;
+    std::string customSymbolName;   // symbol passed to hipModuleGetFunction (e.g. "gemm" for Wave)
     hipModule_t module;
 };
 
