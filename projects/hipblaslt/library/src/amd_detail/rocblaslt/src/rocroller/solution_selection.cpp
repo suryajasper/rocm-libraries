@@ -41,6 +41,11 @@ constexpr size_t possibleTileSizesCount = 3;
 constexpr std::array<WorkGroupTileSize, possibleTileSizesCount> possibleTileSizes
     = {{{256, 256, 256}, {128, 256, 256}, {128, 128, 256}}};
 
+constexpr size_t possibleSwizzleTileSizesCount = 3;
+
+constexpr std::array<WorkGroupTileSize, possibleSwizzleTileSizesCount> possibleSwizzleTileSizes
+    = {{{256, 256, 256}, {128, 256, 256}, {128, 128, 256}}};
+
 // Helper to generate tile list from a compile-time known tile array
 template <rocRoller::DataType typeA,
           rocRoller::DataType typeB,
@@ -155,10 +160,10 @@ std::vector<origami::config_t> getTileListForKernelType(const KernelType& kernel
     auto key = std::make_pair(kernelType.typeA, kernelType.typeB);
     auto it  = tileListGenerators.find(key);
     std::vector<origami::config_t> tileList;
-    bool hasPreSwizzle = (kernelType.scaleTypeA.preSwizzleTile.size() == 3
-                          && kernelType.scaleTypeB.preSwizzleTile.size() == 3);
-    bool hasPreTile
-        = (kernelType.scaleTypeA.preTile.size() == 2 && kernelType.scaleTypeB.preTile.size() == 2);
+    // bool hasPreSwizzle = (kernelType.scaleTypeA.preSwizzleTile.size() == 3
+    //                       && kernelType.scaleTypeB.preSwizzleTile.size() == 3);
+    // bool hasPreTile
+    //     = (kernelType.scaleTypeA.preTile.size() == 2 && kernelType.scaleTypeB.preTile.size() == 2);
 
     if(it != tileListGenerators.end())
     {

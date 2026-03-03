@@ -78,6 +78,7 @@ namespace
         k.typeD                     = rocRoller::DataType::BFloat16;
         k.transA                    = true;
         k.transB                    = false;
+        k.swizzleB = true;
         k.scaleTypeA.mode           = rocRoller::Operations::ScaleMode::Separate;
         k.scaleTypeA.blockRowSize   = 32;
         k.scaleTypeA.blockColSize   = 1;
@@ -216,7 +217,59 @@ void preloadCustomKernels(SolutionCache& cache)
 #endif
 }
 
-// F4 GEMM Kernel Args
+// Wave GEMM kernel ABI: 120 bytes. Kernel signature: gemm(a, a_scale, b, b_scale, c) with
+// C[M,N] = A[M,K] @ B[N,K]^T (scaled). The kernel expects transA=N, transB=T.
+// Layout: 5 pointers (40 B) then 10 strides as uint64_t (80 B). Stride order = buffer order
+// (a, a_scale, b, b_scale, c), per buffer dim0 then dim1. hipBLASLt is column-major; we pass
+// row_stride_* for dim0 and col_stride_* for dim1. Scale strides are inferred (layout [rows, K/32]).
+// For K > 256 the Wave-generated kernel can fault (multi K-tile bug); safe for K <= 256.
+struct __attribute__((packed)) WaveGemmKernelArgs
+{
+    const void* ptr_a;        // 0:   A [M,K]
+    const void* ptr_a_scale;  // 8:   A scale
+    const void* ptr_b;        // 16:  B [N,K]
+    const void* ptr_b_scale;  // 24:  B scale
+    void*       ptr_c;        // 32:  C [M,N] output
+    uint64_t    stride_a_dim0;       // 40:  a dim0 (row stride)
+    uint64_t    stride_a_dim1;       // 48:  a dim1 (col stride)
+    uint64_t    stride_a_scale_dim0; // 56
+    uint64_t    stride_a_scale_dim1; // 64
+    uint64_t    stride_b_dim0;       // 72
+    uint64_t    stride_b_dim1;       // 80
+    uint64_t    stride_b_scale_dim0; // 88
+    uint64_t    stride_b_scale_dim1; // 96
+    uint64_t    stride_c_dim0;       // 104: C leading dim (kernel arg13)
+    uint64_t    stride_c_dim1;       // 112
+};
+static_assert(sizeof(WaveGemmKernelArgs) == 120, "Wave kernel kernarg is 120 bytes");
+
+inline WaveGemmKernelArgs makeWaveGemmKernelArgs(const RocblasltContractionProblem& prob)
+{
+    // A_scale [M, K/32], B_scale [N, K/32] in column-major: dim0 stride = 1, dim1 stride = leading dim (M or N).
+    WaveGemmKernelArgs w = {};
+    w.ptr_a                 = prob.A;
+    w.ptr_a_scale           = prob.scaleA;
+    w.ptr_b                 = prob.B;
+    w.ptr_b_scale           = prob.scaleB;
+    w.ptr_c                 = prob.D;
+    w.stride_a_dim0         = prob.row_stride_a;
+    w.stride_a_dim1         = prob.col_stride_a;
+    w.stride_a_scale_dim0   = 1;
+    w.stride_a_scale_dim1   = static_cast<uint64_t>(prob.m); // leading dimension for [M, K/32]
+    w.stride_b_dim0         = prob.row_stride_b;
+    w.stride_b_dim1         = prob.col_stride_b;
+    w.stride_b_scale_dim0   = 1;
+    w.stride_b_scale_dim1   = static_cast<uint64_t>(prob.n); // leading dimension for [N, K/32]
+    w.stride_c_dim0         = prob.row_stride_d;
+    w.stride_c_dim1         = prob.col_stride_d;
+    return w;
+}
+
+// F4 GEMM Kernel Args (AITER / other kernels with padded layout).
+// AITER kernels take stride_D0/1, stride_C0/1, stride_A0/1, stride_B0/1 (and scale strides).
+// They are stride-based and work with column-major: we pass col_stride_* as the non-zero
+// stride (leading dimension); the code object metadata confirms strideD0/1, strideC0/1,
+// strideA0/1, strideB0/1, Mdim, Ndim, Kdim, ScaleA/B, etc.
 
 struct __attribute__((packed)) p3
 {
@@ -278,27 +331,32 @@ struct __attribute__((packed)) F4GemmKernelArgs
     uint32_t    stride_ScaleB1;
     p3          _p22;
     int         log2_k_split;
+    p3          _p23; // trailing pad to match .kernarg_segment_size 384 (assembly metadata)
 
+    F4GemmKernelArgs() = default;
+
+    // AITER kernel computes D[N,M] = B^T * A instead of C[M,N] = A^T * B
+    // So we swap A<->B pointers/scales and M<->N dimensions
     F4GemmKernelArgs(const RocblasltContractionProblem& prob)
         : ptr_D(prob.D)
-        , ptr_C(nullptr)
-        , ptr_A(const_cast<void*>(prob.A))
-        , ptr_B(const_cast<void*>(prob.B))
+        , ptr_C(prob.C)
+        , ptr_A(const_cast<void*>(prob.B)) // Swapped: kernel's A = hipBLASLt's B
+        , ptr_B(const_cast<void*>(prob.A)) // Swapped: kernel's B = hipBLASLt's A
         , alpha(*static_cast<const float*>(prob.alpha))
         , beta(*static_cast<const float*>(prob.beta))
-        , stride_D0(0)
-        , stride_D1(0)
+        , stride_D0(static_cast<uint32_t>(prob.row_stride_d))
+        , stride_D1(static_cast<uint32_t>(prob.col_stride_d))
         , stride_C0(static_cast<uint32_t>(prob.col_stride_c))
         , stride_C1(0)
-        , stride_A0(static_cast<uint32_t>(prob.col_stride_a))
+        , stride_A0(static_cast<uint32_t>(prob.col_stride_b)) // Swapped
         , stride_A1(0)
-        , stride_B0(static_cast<uint32_t>(prob.col_stride_b))
+        , stride_B0(static_cast<uint32_t>(prob.col_stride_a)) // Swapped
         , stride_B1(0)
-        , M(static_cast<uint32_t>(prob.m))
-        , N(static_cast<uint32_t>(prob.n))
+        , M(static_cast<uint32_t>(prob.n)) // Swapped: kernel's M = hipBLASLt's N
+        , N(static_cast<uint32_t>(prob.m)) // Swapped: kernel's N = hipBLASLt's M
         , K(static_cast<uint32_t>(prob.k))
-        , ptr_ScaleA(prob.scaleA)
-        , ptr_ScaleB(prob.scaleB)
+        , ptr_ScaleA(prob.scaleB) // Swapped
+        , ptr_ScaleB(prob.scaleA) // Swapped
         , stride_ScaleA0(static_cast<uint32_t>(prob.k / 32))
         , stride_ScaleA1(0)
         , stride_ScaleB0(static_cast<uint32_t>(prob.k / 32))
@@ -307,6 +365,9 @@ struct __attribute__((packed)) F4GemmKernelArgs
     {
     }
 };
+// AITER kernel .amdgpu_metadata: kernarg layout D,C,A,B,alpha,beta, strideD0/1, strideC0/1,
+// strideA0/1, strideB0/1, Mdim, Ndim, Kdim, ScaleA, ScaleB, strideScaleA0/1, strideScaleB0/1, log2_k_split; total 384.
+static_assert(sizeof(F4GemmKernelArgs) == 384, "AITER kernarg segment size must be 384");
 
 rocblaslt_status runCustomKernel(std::shared_ptr<GemmKernel>        gemm,
                                  const RocblasltContractionProblem& prob)
@@ -317,31 +378,61 @@ rocblaslt_status runCustomKernel(std::shared_ptr<GemmKernel>        gemm,
         return rocblaslt_status_internal_error;
     }
 
-    if (prob.beta && *static_cast<const float*>(prob.beta) != 0)
+    const uint32_t tileM = gemm->params->workgroupTile.m;
+    const uint32_t tileN = gemm->params->workgroupTile.n;
+    std::string    name  = gemm->module->getKernelName();
+
+    const bool isAiter = (name.find("aiter") != std::string::npos)
+                         || (name.find("f4gemm") != std::string::npos);
+
+    void*  argsPtr  = nullptr;
+    size_t argsSize = 0;
+    dim3   grid;
+    dim3   block;
+
+    if(isAiter)
     {
-        std::cerr << "Kernel only supports when beta is 0" << std::endl;;
-        return rocblaslt_status_invalid_value;
+        // AITER / F4 kernels: F4GemmKernelArgs (strides, alpha, beta, etc.), grid = (tilesN, tilesM), block = (256, 1, 1).
+        // Static buffer so the pointer remains valid for the async launch (driver may copy args when the kernel runs).
+        static F4GemmKernelArgs f4ArgsStorage;
+        f4ArgsStorage = F4GemmKernelArgs(prob);
+        argsPtr      = &f4ArgsStorage;
+        argsSize     = sizeof(F4GemmKernelArgs);
+
+        uint32_t tilesM = (prob.m + tileM - 1) / tileM;
+        uint32_t tilesN = (prob.n + tileN - 1) / tileN;
+        grid.x          = tilesN;
+        grid.y          = tilesM;
+        grid.z  = 1;
+        block.x        = 256;
+        block.y        = 1;
+        block.z        = 1;
+    }
+    else
+    {
+        // Wave kernel ABI: 120-byte args, grid = (tilesN, tilesM), block = (64, 4, 1).
+        // Static buffer so the pointer remains valid for the async launch.
+        static WaveGemmKernelArgs waveArgsStorage;
+        waveArgsStorage = makeWaveGemmKernelArgs(prob);
+        uint32_t tilesM = (static_cast<uint32_t>(prob.m) + tileM - 1) / tileM;
+        uint32_t tilesN = (static_cast<uint32_t>(prob.n) + tileN - 1) / tileN;
+
+        grid.x   = tilesN;
+        grid.y   = tilesM;
+        grid.z   = 1;
+        block.x  = 64; // .reqd_workgroup_size 64 x 4 x 1
+        block.y  = 4;
+        block.z  = 1;
+        argsPtr  = &waveArgsStorage;
+        argsSize = sizeof(waveArgsStorage);
     }
 
-    F4GemmKernelArgs args(prob);
-
-    const uint32_t tileM     = gemm->params->workgroupTile.m;
-    const uint32_t tileN     = gemm->params->workgroupTile.n;
-    const uint32_t blockSize = 256; // Threads per workgroup
-
-    // Number of tiles in each dimension
-    uint32_t tilesM = (args.M + tileM - 1) / tileM;
-    uint32_t tilesN = (args.N + tileN - 1) / tileN;
-
-    dim3 grid;
-    grid.x = tilesN;
-    grid.y = tilesM;
-    grid.z = 1;
-
-    dim3 block{blockSize, 1, 1};
-
-    void*  argsPtr  = &args;
-    size_t argsSize = sizeof(args);
+    if(getenv("HIPBLASLT_ROCROLLER_DEBUG_CUSTOM_KERNEL"))
+    {
+        std::cerr << "runCustomKernel: " << name << " grid=(" << grid.x << "," << grid.y << ","
+                  << grid.z << ") block=(" << block.x << "," << block.y << "," << block.z << ")"
+                  << " argsSize=" << argsSize << std::endl;
+    }
 
     void* hipLaunchParams[] = {HIP_LAUNCH_PARAM_BUFFER_POINTER,
                                argsPtr,
@@ -356,7 +447,8 @@ rocblaslt_status runCustomKernel(std::shared_ptr<GemmKernel>        gemm,
                   << " error: " << hipGetErrorString(error) << std::endl;
         return rocblaslt_status_internal_error;
     }
-    if(hipError_t error = hipModuleLaunchKernel(function,
+
+    if(hipError_t error = hipExtModuleLaunchKernel(function,
                                                    grid.x,
                                                    grid.y,
                                                    grid.z,
@@ -366,11 +458,12 @@ rocblaslt_status runCustomKernel(std::shared_ptr<GemmKernel>        gemm,
                                                    0, // sharedMem
                                                    prob.stream, // stream
                                                    nullptr,
-                                                   (void**)&hipLaunchParams
+                                                   (void**)&hipLaunchParams,
+                                                   nullptr, // event
+                                                   nullptr // event
                                                    ))
     {
-        std::cerr << "hipExtModuleLaunchKernel in runCustomKernel failed: "
-                  << gemm->module->getKernelName() << std::endl
+        std::cerr << "hipExtModuleLaunchKernel in runCustomKernel failed: " << name << std::endl
                   << " error: " << hipGetErrorString(error) << std::endl;
         return rocblaslt_status_internal_error;
     }

@@ -6,9 +6,13 @@ file(GLOB_RECURSE CUSTOM_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/*.co")
 # Fallback explicit list if glob is empty (e.g. wave/ not present in tree)
 if(NOT CUSTOM_KERNELS)
     set(CUSTOM_KERNELS
+        "${CMAKE_CURRENT_SOURCE_DIR}/aiter/f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256.co"
         "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_dbuf_4wave_MT256x256x256.co"
         "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_dbuf_4wave_MT128x256x256.co"
         "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_dbuf_4wave_MT128x128x256.co"
+        "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_preshuffled_MT_256x256x256.co"
+        "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_preshuffled_MT_128x256x256.co"
+        "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_preshuffled_MT_128x128x256.co"
     )
 endif()
 
