@@ -25,5 +25,7 @@ export LD_LIBRARY_PATH="${PWD}/library:${PWD}/rocroller${LD_LIBRARY_PATH:+:${LD_
     --a_type f4_r --b_type f4_r \
     --c_type bf16_r --d_type bf16_r \
     --compute_type f32_r \
-    --rotating 0 --cold_iters 1 --iters 1 
+    --rotating 0 --cold_iters 1 --iters 1 \
+    --swizzleB \
+    --verify
  

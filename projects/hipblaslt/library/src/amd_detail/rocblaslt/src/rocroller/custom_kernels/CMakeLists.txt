@@ -61,41 +61,42 @@ file(MAKE_DIRECTORY "${BUILT_OBJ_DIR}")
 
 # Assembly source files for custom kernels (explicit list)
 set(CUSTOM_KERNEL_ASM_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x128.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x384.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x512.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x640.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x768.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x896.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x1024.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x128.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x384.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x512.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x640.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x768.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x896.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x1024.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x128.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x384.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x512.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x640.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x128.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x384.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x512.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_160x128.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_160x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_160x384.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_192x128.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_192x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_224x128.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_224x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_256x128.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_noBpreShuffle_256x256.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x128.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x256.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x384.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x512.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x640.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x768.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x896.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x1024.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x128.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x256.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x384.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x512.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x640.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x768.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x896.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x1024.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x128.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x256.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x384.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x512.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x640.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x128.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x256.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x384.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x512.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_160x128.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_160x256.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_160x384.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_192x128.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_192x256.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_224x128.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_224x256.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_256x128.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256.s
+    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_noBpreShuffle_256x256.s
+    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_bf16_Bpreshuffle_256x256.s
 )
 
 # Build combined .co from all assembly sources
