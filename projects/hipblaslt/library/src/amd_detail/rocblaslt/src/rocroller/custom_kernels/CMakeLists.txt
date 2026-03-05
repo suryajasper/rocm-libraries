@@ -1,21 +1,6 @@
 # Copyright Advanced Micro Devices, Inc., or its affiliates.
 # SPDX-License-Identifier:  MIT
 
-# Custom kernels: glob all .co files so adding a new kernel only requires a YAML entry.
-file(GLOB_RECURSE CUSTOM_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/*.co")
-# Fallback explicit list if glob is empty (e.g. wave/ not present in tree)
-if(NOT CUSTOM_KERNELS)
-    set(CUSTOM_KERNELS
-        "${CMAKE_CURRENT_SOURCE_DIR}/aiter/f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256.co"
-        "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_dbuf_4wave_MT256x256x256.co"
-        "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_dbuf_4wave_MT128x256x256.co"
-        "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_dbuf_4wave_MT128x128x256.co"
-        "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_preshuffled_MT_256x256x256.co"
-        "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_preshuffled_MT_128x256x256.co"
-        "${CMAKE_CURRENT_SOURCE_DIR}/wave/wave_gemm_mxfp4_preshuffled_MT_128x128x256.co"
-    )
-endif()
-
 if(NOT "${HIPBLASLT_TENSILE_LIBPATH}")
     set(CUSTOM_KERNEL_DST_DIR "${hipblaslt_BINARY_DIR}/Tensile/library")
 else()
@@ -29,28 +14,14 @@ find_program(ROCM_LLD
     PATH_SUFFIXES lib/llvm/bin llvm/bin bin
 )
 
-set(CUSTOM_KERNEL_OUTPUTS)
-foreach(CUSTOM_KERNEL_FILE ${CUSTOM_KERNELS})
-    get_filename_component(CUSTOM_KERNEL_FILENAME "${CUSTOM_KERNEL_FILE}" NAME)
-    set(CUSTOM_KERNEL_DST "${CUSTOM_KERNEL_DST_DIR}/${CUSTOM_KERNEL_FILENAME}")
-    add_custom_command(
-        OUTPUT "${CUSTOM_KERNEL_DST}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CUSTOM_KERNEL_FILE}" "${CUSTOM_KERNEL_DST}"
-        DEPENDS "${CUSTOM_KERNEL_FILE}"
-        COMMENT "Copying ${CUSTOM_KERNEL_FILENAME}"
-        VERBATIM
-    )
-    list(APPEND CUSTOM_KERNEL_OUTPUTS "${CUSTOM_KERNEL_DST}")
-endforeach()
-
-# Copy kernels.yaml so runtime can load custom kernel metadata from getCoPath()/library/
+# Copy kernels.yaml so runtime can load custom kernel metadata from getCoPath()/kernels.yaml
 set(CUSTOM_KERNELS_YAML_SRC "${CMAKE_CURRENT_SOURCE_DIR}/kernels.yaml")
-set(CUSTOM_KERNELS_YAML_DST "${CUSTOM_KERNEL_DST_DIR}/custom_kernels.yaml")
+set(CUSTOM_KERNELS_YAML_DST "${CUSTOM_KERNEL_DST_DIR}/kernels.yaml")
 add_custom_command(
     OUTPUT "${CUSTOM_KERNELS_YAML_DST}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CUSTOM_KERNELS_YAML_SRC}" "${CUSTOM_KERNELS_YAML_DST}"
     DEPENDS "${CUSTOM_KERNELS_YAML_SRC}"
-    COMMENT "Copying custom_kernels.yaml"
+    COMMENT "Copying kernels.yaml"
     VERBATIM
 )
 list(APPEND CUSTOM_KERNEL_OUTPUTS "${CUSTOM_KERNELS_YAML_DST}")
@@ -59,44 +30,9 @@ list(APPEND CUSTOM_KERNEL_OUTPUTS "${CUSTOM_KERNELS_YAML_DST}")
 set(BUILT_OBJ_DIR "${CMAKE_CURRENT_BINARY_DIR}/obj")
 file(MAKE_DIRECTORY "${BUILT_OBJ_DIR}")
 
-# Assembly source files for custom kernels (explicit list)
-set(CUSTOM_KERNEL_ASM_SOURCES
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x128.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x256.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x384.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x512.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x640.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x768.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x896.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_32x1024.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x128.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x256.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x384.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x512.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x640.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x768.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x896.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_64x1024.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x128.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x256.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x384.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x512.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_96x640.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x128.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x256.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x384.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_128x512.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_160x128.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_160x256.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_160x384.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_192x128.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_192x256.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_224x128.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_224x256.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_256x128.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256.s
-    # ${CMAKE_CURRENT_SOURCE_DIR}/f4gemm_bf16_per1x32Fp4_noBpreShuffle_256x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_bf16_Bpreshuffle_256x256.s
+# Assembly source files for custom kernels (glob wave/*.s and subdirs)
+file(GLOB_RECURSE CUSTOM_KERNEL_ASM_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/wave/*.s"
 )
 
 # Build combined .co from all assembly sources
@@ -152,14 +88,14 @@ if(ROCM_LLD)
     )
     
     add_custom_target(custom-kernels ALL
-        DEPENDS ${CUSTOM_KERNEL_OUTPUTS} "${COMBINED_CO_DST}"
+        DEPENDS "${COMBINED_CO_DST}" "${CUSTOM_KERNELS_YAML_DST}"
     )
     
     message(STATUS "  Combined output: ${COMBINED_CO_DST}")
 else()
-    add_custom_target(custom-kernels ALL
-        DEPENDS ${CUSTOM_KERNEL_OUTPUTS}
-    )
+    if(NOT ROCM_LLD)
+        message(FATAL_ERROR "ROCm ld.lld not found, cannot build custom kernels from assembly")
+    endif()
 endif()
 
 add_dependencies(hipblaslt-rocroller custom-kernels)

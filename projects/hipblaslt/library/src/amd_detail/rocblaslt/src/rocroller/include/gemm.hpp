@@ -11,6 +11,7 @@
 #include <rocRoller/Operations/Scratch_fwd.hpp>
 #include <rocRoller/TensorDescriptor.hpp>
 
+#include <array>
 #include <map>
 #include <optional>
 
@@ -108,6 +109,9 @@ public:
     int occupancy;
 
     std::optional<GemmHipModuleWrapper> module;
+
+    /// For custom kernels: HIP launch block dimensions [x, y, z] (reqd_workgroup_size). Set from kernels.yaml.
+    std::optional<std::array<int, 3>> customBlockSize;
 
     bool isCustomKernel() const
     {

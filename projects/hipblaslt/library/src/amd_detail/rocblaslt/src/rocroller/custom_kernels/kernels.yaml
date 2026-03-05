@@ -1,42 +1,44 @@
 # Custom GEMM kernels loaded at runtime.
-# Paths are relative to the library directory (getCoPath() or getCoPath()/library).
+# workgroup_size: tile dimensions [M, N, K]. block_size: HIP launch block [x, y, z] (reqd_workgroup_size).
 # Add new kernels here and ensure the .co file is in the custom_kernels directory (or subdir).
 kernels:
-  # - name: wave_gemm_mxfp4_dbuf_4wave_MT256x256x256
-  #   path: wave_gemm_mxfp4_dbuf_4wave_MT256x256x256.co
-  #   workgroup_size: [256, 256, 256]
-  #   entry_function: gemm
-  #   kernel_type: mxfp4
-  # - name: wave_gemm_mxfp4_dbuf_4wave_MT128x256x256
-  #   path: wave_gemm_mxfp4_dbuf_4wave_MT128x256x256.co
-  #   workgroup_size: [128, 256, 256]
-  #   entry_function: gemm
-  #   kernel_type: mxfp4
-  # - name: wave_gemm_mxfp4_dbuf_4wave_MT128x128x256
-  #   path: wave_gemm_mxfp4_dbuf_4wave_MT128x128x256.co
-  #   workgroup_size: [128, 128, 256]
-  #   entry_function: gemm
-  #   kernel_type: mxfp4
-  - name: wave_gemm_mxfp4_preshuffled_MT_256x256x256
-    path: wave_gemm_mxfp4_preshuffled_MT_256x256x256.co
+  - name: wave_gemm_mxfp4_dynamic_256x256x256
     workgroup_size: [256, 256, 256]
-    entry_function: gemm
+    block_size: [64, 4, 1]
+    entry_function: wave_gemm_dynamic_256x256x256
+    shuffle: true
     kernel_type: mxfp4
-  - name: wave_gemm_mxfp4_preshuffled_MT_128x256x256
-    path: wave_gemm_mxfp4_preshuffled_MT_128x256x256.co
-    workgroup_size: [128, 256, 256]
-    entry_function: gemm
-    kernel_type: mxfp4
-  - name: wave_gemm_mxfp4_preshuffled_MT_128x128x256
-    path: wave_gemm_mxfp4_preshuffled_MT_128x128x256.co
-    workgroup_size: [128, 128, 256]
-    entry_function: gemm
-    kernel_type: mxfp4
-  # - name: _ZN5aiter44f4gemm_bf16_per1x32Fp4_noBpreShuffle_256x256E
-  #   path: f4gemm_bf16_per1x32Fp4_noBpreShuffle_256x256.co
+  # - name: wave_gemm_mxfp4_dynamic_256x192x256
+  #   workgroup_size: [256, 192, 256]
+  #   block_size: [64, 4, 1]
+  #   entry_function: wave_gemm_dynamic_256x192x256
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: wave_gemm_mxfp4_preshuffled_MT_256x256x256
   #   workgroup_size: [256, 256, 256]
+  #   block_size: [64, 4, 1]
+  #   entry_function: gemm_256x256x256
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: wave_gemm_mxfp4_preshuffled_MT_128x256x256
+  #   workgroup_size: [128, 256, 256]
+  #   block_size: [64, 4, 1]
+  #   entry_function: gemm_128x256x256
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: wave_gemm_mxfp4_preshuffled_MT_128x128x256
+  #   workgroup_size: [128, 128, 256]
+  #   block_size: [64, 4, 1]
+  #   entry_function: gemm_128x128x256
+  #   shuffle: true
   #   kernel_type: mxfp4
   # - name: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256E
-  #   path: f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256.co
   #   workgroup_size: [256, 256, 256]
+  #   block_size: [256, 1, 1]
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: _ZN5aiter44f4gemm_bf16_per1x32Fp4_noBpreShuffle_256x256E
+  #   workgroup_size: [256, 256, 256]
+  #   block_size: [256, 1, 1]
+  #   shuffle: false
   #   kernel_type: mxfp4
