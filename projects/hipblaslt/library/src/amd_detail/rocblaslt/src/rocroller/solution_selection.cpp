@@ -33,17 +33,17 @@ constexpr std::array<WorkGroupTileSize, possibleTileSizesCount> possibleTileSize
         {32, 16, 128},   {16, 32, 128},   {16, 16, 128},   {16, 16, 256},   {16, 64, 256},
         {192, 256, 256}}};
 
-constexpr size_t possibleSwizzleTileSizesCount = 35;
+constexpr size_t possibleSwizzleTileSizesCount = 39;
 
-constexpr std::array<WorkGroupTileSize, possibleSwizzleTileSizesCount> possibleSwizzleTileSizes = {
-    {//{32,32,128}, {64, 32, 128}, {64, 64, 128}, {128, 32, 128}, TODO: Add these in once rocRoller supports swizzleB
-     {32, 128, 128},  {32, 256, 128},  {32, 384, 128},  {32, 512, 128},  {32, 640, 128},
-     {32, 768, 128},  {32, 896, 128},  {32, 1024, 128}, {64, 128, 128},  {64, 256, 128},
-     {64, 384, 128},  {64, 512, 128},  {64, 640, 128},  {64, 768, 128},  {64, 896, 128},
-     {64, 1024, 128}, {96, 128, 128},  {96, 256, 128},  {96, 384, 128},  {96, 512, 128},
-     {96, 640, 128},  {128, 128, 128}, {128, 256, 128}, {128, 384, 128}, {128, 512, 128},
-     {160, 128, 128}, {160, 256, 128}, {160, 384, 128}, {192, 128, 128}, {192, 256, 128},
-     {224, 128, 128}, {224, 256, 128}, {256, 128, 128}, {256, 256, 128}, {192, 256, 256}}};
+constexpr std::array<WorkGroupTileSize, possibleSwizzleTileSizesCount> possibleSwizzleTileSizes
+    = {{{32,32,128}, {64, 32, 128}, {64, 64, 128}, {128, 32, 128},
+        {32, 128, 128},  {32, 256, 128},  {32, 384, 128},  {32, 512, 128},  {32, 640, 128},
+        {32, 768, 128},  {32, 896, 128},  {32, 1024, 128}, {64, 128, 128},  {64, 256, 128},
+        {64, 384, 128},  {64, 512, 128},  {64, 640, 128},  {64, 768, 128},  {64, 896, 128},
+        {64, 1024, 128}, {96, 128, 128},  {96, 256, 128},  {96, 384, 128},  {96, 512, 128},
+        {96, 640, 128},  {128, 128, 128}, {128, 256, 128}, {128, 384, 128}, {128, 512, 128},
+        {160, 128, 128}, {160, 256, 128}, {160, 384, 128}, {192, 128, 128}, {192, 256, 128},
+        {224, 128, 128}, {224, 256, 128}, {256, 128, 128}, {256, 256, 128}, {192, 256, 256}}};
 
 // Helper to generate tile list from a compile-time known tile array
 template <rocRoller::DataType                             typeA,
@@ -226,6 +226,7 @@ std::vector<SolutionIndexParameters> chooseSolutionIndexParameters(
         int               unrollAmount  = preferredUnrolling(
             kernelType.typeA, kernelType.typeB, wgt, hasPreSwizzle, hasPreTile);
         wgt.k /= unrollAmount;
+        std::cout<<"Workgroup Tile:"<<wgt.m<<"x"<<wgt.n<<"x"<<wgt.k<<std::endl;
 
         if((requestedAlgoCount == -1)
            || (prob.m % wgt.m == 0 && prob.n % wgt.n == 0 && prob.k % wgt.k == 0))
