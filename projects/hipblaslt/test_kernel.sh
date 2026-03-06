@@ -7,7 +7,7 @@ k="${3:-256}"
 
 # Use the build's libhipblaslt and librocroller so the in-tree rocroller (with
 # Operations::Tensor 4-arg constructor) is loaded instead of /opt/rocm's older lib.
-export LD_LIBRARY_PATH="${PWD}/library:${PWD}/rocroller${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="${PWD}/build/library:${PWD}/build/rocroller${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
 # # Point to Tensile library dir so custom kernels (YAML + .co) are found at runtime.
 # export HIPBLASLT_TENSILE_LIBPATH="${PWD}/Tensile"
