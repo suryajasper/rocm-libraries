@@ -23,6 +23,6 @@ ninja hipblaslt-bench && ./clients/hipblaslt-bench \
     --c_type bf16_r --d_type bf16_r \
     --compute_type f32_r \
     --rotating 0 --cold_iters 1 --iters 1 \
-    --swizzleB \
+    --swizzleA \
     --verify
  

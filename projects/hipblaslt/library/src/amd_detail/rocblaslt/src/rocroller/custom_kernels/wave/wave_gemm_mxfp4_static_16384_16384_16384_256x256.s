@@ -4,10 +4,10 @@
 	.amdgcn_target "amdgcn-amd-amdhsa--gfx950"
 	.amdhsa_code_object_version 5
 	.text
-	.globl	gemm
+	.globl	wave_gemm_static_16k_256x256x256
 	.p2align	8
-	.type	gemm,@function
-gemm:
+	.type	wave_gemm_static_16k_256x256x256,@function
+wave_gemm_static_16k_256x256x256:
 	s_load_dwordx2 s[2:3], s[0:1], 0x0
 	s_load_dwordx8 s[4:11], s[0:1], 0x8
 	s_load_dwordx4 s[12:15], s[0:1], 0x28
@@ -3390,7 +3390,7 @@ gemm:
 	s_endpgm
 	.section	.rodata,"a",@progbits
 	.p2align	6, 0x0
-	.amdhsa_kernel gemm
+	.amdhsa_kernel wave_gemm_static_16k_256x256x256
 		.amdhsa_group_segment_fixed_size 69632
 		.amdhsa_private_segment_fixed_size 0
 		.amdhsa_kernarg_size 120
@@ -3432,18 +3432,18 @@ gemm:
 	.end_amdhsa_kernel
 	.text
 .Lfunc_end0:
-	.size	gemm, .Lfunc_end0-gemm
+	.size	wave_gemm_static_16k_256x256x256, .Lfunc_end0-wave_gemm_static_16k_256x256x256
 
-	.set gemm.num_vgpr, 256
-	.set gemm.num_agpr, 256
-	.set gemm.numbered_sgpr, 56
-	.set gemm.num_named_barrier, 0
-	.set gemm.private_seg_size, 0
-	.set gemm.uses_vcc, 1
-	.set gemm.uses_flat_scratch, 0
-	.set gemm.has_dyn_sized_stack, 0
-	.set gemm.has_recursion, 0
-	.set gemm.has_indirect_call, 0
+	.set wave_gemm_static_16k_256x256x256.num_vgpr, 256
+	.set wave_gemm_static_16k_256x256x256.num_agpr, 256
+	.set wave_gemm_static_16k_256x256x256.numbered_sgpr, 56
+	.set wave_gemm_static_16k_256x256x256.num_named_barrier, 0
+	.set wave_gemm_static_16k_256x256x256.private_seg_size, 0
+	.set wave_gemm_static_16k_256x256x256.uses_vcc, 1
+	.set wave_gemm_static_16k_256x256x256.uses_flat_scratch, 0
+	.set wave_gemm_static_16k_256x256x256.has_dyn_sized_stack, 0
+	.set wave_gemm_static_16k_256x256x256.has_recursion, 0
+	.set wave_gemm_static_16k_256x256x256.has_indirect_call, 0
 	.p2alignl 6, 3212836864
 	.fill 256, 4, 3212836864
 	.section	.AMDGPU.gpr_maximums,"",@progbits
@@ -3547,7 +3547,7 @@ amdhsa.kernels:
     .kernarg_segment_align: 8
     .kernarg_segment_size: 120
     .max_flat_workgroup_size: 256
-    .name:           gemm
+    .name:           wave_gemm_static_16k_256x256x256
     .private_segment_fixed_size: 0
     .reqd_workgroup_size:
       - 64
@@ -3555,7 +3555,7 @@ amdhsa.kernels:
       - 1
     .sgpr_count:     62
     .sgpr_spill_count: 0
-    .symbol:         gemm.kd
+    .symbol:         wave_gemm_static_16k_256x256x256.kd
     .uniform_work_group_size: 1
     .uses_dynamic_stack: false
     .vgpr_count:     512

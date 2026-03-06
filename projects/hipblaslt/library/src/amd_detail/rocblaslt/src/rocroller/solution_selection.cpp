@@ -130,7 +130,7 @@ std::vector<origami::config_t> getTileListForKernelType(const KernelType& kernel
     std::cerr << "[solution_selection] getTileListForKernelType: typeA="
               << static_cast<int>(kernelType.typeA)
               << " typeB=" << static_cast<int>(kernelType.typeB)
-              << " swizzleB=" << kernelType.swizzleB << std::endl;
+              << " swizzleA=" << kernelType.swizzleA << std::endl;
 
     // Compute hasPreSwizzle and hasPreTile from ScaleType
     bool hasPreSwizzle = (kernelType.scaleTypeA.preSwizzleTile.size() == 3
@@ -138,12 +138,12 @@ std::vector<origami::config_t> getTileListForKernelType(const KernelType& kernel
     bool hasPreTile
         = (kernelType.scaleTypeA.preTile.size() == 2 && kernelType.scaleTypeB.preTile.size() == 2);
 
-    // FP4 x FP4 with swizzleB: solution set comes only from kernels.yaml (custom kernel registry).
-    if(kernelType.swizzleB && kernelType.typeA == rocRoller::DataType::FP4
+    // FP4 x FP4 with swizzleA: solution set comes only from kernels.yaml (custom kernel registry).
+    if(kernelType.swizzleA && kernelType.typeA == rocRoller::DataType::FP4
        && kernelType.typeB == rocRoller::DataType::FP4)
     {
         std::vector<WorkGroupTileSize> customSizes = getCustomKernelWorkgroupSizes(kernelType);
-        std::cerr << "[solution_selection] FP4+swizzleB path: customSizes.size()="
+        std::cerr << "[solution_selection] FP4+swizzleA path: customSizes.size()="
                   << customSizes.size() << std::endl;
         std::vector<origami::config_t> tileList;
         size_t preSwizzleTileMN = hasPreSwizzle && !kernelType.scaleTypeA.preSwizzleTile.empty()
@@ -166,7 +166,7 @@ std::vector<origami::config_t> getTileListForKernelType(const KernelType& kernel
                 .cache_hints_b = 0,
             });
         }
-        std::cerr << "[solution_selection] getTileListForKernelType (FP4+swizzleB) returning "
+        std::cerr << "[solution_selection] getTileListForKernelType (FP4+swizzleA) returning "
                      "tileList.size()="
                   << tileList.size() << std::endl;
         return tileList;

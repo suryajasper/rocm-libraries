@@ -133,7 +133,7 @@ static bool descriptorMatchesKernelType(const CustomKernelDescriptor& d, const K
 {
     if(kt.typeA == rocRoller::DataType::FP4 && kt.typeB == rocRoller::DataType::FP4
        && d.kernelType == "mxfp4")
-        return d.shuffle == kt.swizzleB;
+        return d.shuffle == kt.swizzleA;
     // Extend for other kernel types as needed.
     return false;
 }

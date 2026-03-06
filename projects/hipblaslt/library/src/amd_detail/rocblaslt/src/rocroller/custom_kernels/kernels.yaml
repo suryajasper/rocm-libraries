@@ -2,43 +2,230 @@
 # workgroup_size: tile dimensions [M, N, K]. block_size: HIP launch block [x, y, z] (reqd_workgroup_size).
 # Add new kernels here and ensure the .co file is in the custom_kernels directory (or subdir).
 kernels:
-  - name: wave_gemm_mxfp4_dynamic_256x256x256
-    workgroup_size: [256, 256, 256]
-    block_size: [64, 4, 1]
-    entry_function: wave_gemm_dynamic_256x256x256
-    shuffle: true
-    kernel_type: mxfp4
-  # - name: wave_gemm_mxfp4_dynamic_256x192x256
-  #   workgroup_size: [256, 192, 256]
-  #   block_size: [64, 4, 1]
-  #   entry_function: wave_gemm_dynamic_256x192x256
-  #   shuffle: true
-  #   kernel_type: mxfp4
-  # - name: wave_gemm_mxfp4_preshuffled_MT_256x256x256
-  #   workgroup_size: [256, 256, 256]
-  #   block_size: [64, 4, 1]
-  #   entry_function: gemm_256x256x256
-  #   shuffle: true
-  #   kernel_type: mxfp4
-  # - name: wave_gemm_mxfp4_preshuffled_MT_128x256x256
+  # - name: wave_gemm_mxfp4_dynamic_128x256x256
   #   workgroup_size: [128, 256, 256]
   #   block_size: [64, 4, 1]
-  #   entry_function: gemm_128x256x256
+  #   entry_function: wave_gemm_dynamic_128x256x256
   #   shuffle: true
   #   kernel_type: mxfp4
-  # - name: wave_gemm_mxfp4_preshuffled_MT_128x128x256
+
+  - name: wave_gemm_mxfp4_static_256x256x256
+    workgroup_size: [128, 256, 256]
+    block_size: [64, 4, 1]
+    entry_function: wave_gemm_static_16k_256x256x256
+    shuffle: true
+    kernel_type: mxfp4
+
+  # # aiter 32xN kernels
+  # - name: aiter_gemm_bpreshuffle_32x128x256
+  #   workgroup_size: [32, 128, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x128E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_32x256x256
+  #   workgroup_size: [32, 256, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x256E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_32x384x256
+  #   workgroup_size: [32, 384, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x384E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_32x512x256
+  #   workgroup_size: [32, 512, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x512E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_32x640x256
+  #   workgroup_size: [32, 640, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x640E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_32x768x256
+  #   workgroup_size: [32, 768, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x768E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_32x896x256
+  #   workgroup_size: [32, 896, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_32x896E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_32x1024x256
+  #   workgroup_size: [32, 1024, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_32x1024E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+
+  # # aiter 64xN kernels
+  # - name: aiter_gemm_bpreshuffle_64x256x256
+  #   workgroup_size: [64, 256, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x256E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_64x384x256
+  #   workgroup_size: [64, 384, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x384E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_64x512x256
+  #   workgroup_size: [64, 512, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x512E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_64x640x256
+  #   workgroup_size: [64, 640, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x640E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_64x768x256
+  #   workgroup_size: [64, 768, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x768E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_64x896x256
+  #   workgroup_size: [64, 896, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_64x896E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_64x1024x256
+  #   workgroup_size: [64, 1024, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_64x1024E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+
+  # # aiter 96xN kernels
+  # - name: aiter_gemm_bpreshuffle_96x128x256
+  #   workgroup_size: [96, 128, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x128E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_96x256x256
+  #   workgroup_size: [96, 256, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x256E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_96x384x256
+  #   workgroup_size: [96, 384, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x384E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_96x512x256
+  #   workgroup_size: [96, 512, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x512E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_96x640x256
+  #   workgroup_size: [96, 640, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter41f4gemm_bf16_per1x32Fp4_BpreShuffle_96x640E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+
+  # # aiter 128xN kernels
+  # - name: aiter_gemm_bpreshuffle_128x128x256
   #   workgroup_size: [128, 128, 256]
-  #   block_size: [64, 4, 1]
-  #   entry_function: gemm_128x128x256
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_128x128E
   #   shuffle: true
   #   kernel_type: mxfp4
-  # - name: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256E
-  #   workgroup_size: [256, 256, 256]
+  # - name: aiter_gemm_bpreshuffle_128x256x256
+  #   workgroup_size: [128, 256, 256]
   #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_128x256E
   #   shuffle: true
   #   kernel_type: mxfp4
-  # - name: _ZN5aiter44f4gemm_bf16_per1x32Fp4_noBpreShuffle_256x256E
+  # - name: aiter_gemm_bpreshuffle_128x384x256
+  #   workgroup_size: [128, 384, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_128x384E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_128x512x256
+  #   workgroup_size: [128, 512, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_128x512E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+
+  # # aiter 160xN kernels
+  # - name: aiter_gemm_bpreshuffle_160x128x256
+  #   workgroup_size: [160, 128, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_160x128E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_160x256x256
+  #   workgroup_size: [160, 256, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_160x256E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_160x384x256
+  #   workgroup_size: [160, 384, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_160x384E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+
+  # # aiter 192xN kernels
+  # - name: aiter_gemm_bpreshuffle_192x128x256
+  #   workgroup_size: [192, 128, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_192x128E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_192x256x256
+  #   workgroup_size: [192, 256, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_192x256E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+
+  # # aiter 224xN kernels
+  # - name: aiter_gemm_bpreshuffle_224x128x256
+  #   workgroup_size: [224, 128, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_224x128E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_224x256x256
+  #   workgroup_size: [224, 256, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_224x256E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+
+  # # aiter 256xN kernels
+  # - name: aiter_gemm_bpreshuffle_256x128x256
+  #   workgroup_size: [256, 128, 256]
+  #   block_size: [256, 1, 1]
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_256x128E
+  #   shuffle: true
+  #   kernel_type: mxfp4
+  # - name: aiter_gemm_bpreshuffle_256x256x256
   #   workgroup_size: [256, 256, 256]
   #   block_size: [256, 1, 1]
-  #   shuffle: false
+  #   entry_function: _ZN5aiter42f4gemm_bf16_per1x32Fp4_BpreShuffle_256x256E
+  #   shuffle: true
   #   kernel_type: mxfp4
