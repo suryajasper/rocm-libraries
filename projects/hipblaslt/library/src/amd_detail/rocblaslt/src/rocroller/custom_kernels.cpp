@@ -134,11 +134,11 @@ inline WaveGemmKernelArgs makeWaveGemmKernelArgs(const RocblasltContractionProbl
     w.m                   = prob.n; // swap
     w.n                   = prob.m; // swap
     w.k                   = prob.k;
-    w.stride_a_dim0       = prob.col_stride_b; // swap
+    w.stride_a_dim0       = prob.col_stride_b / 2; // swap; FP4 byte stride = elements / 2
     w.stride_a_scale_dim0 = prob.k / 32;
-    w.stride_b_dim0       = prob.col_stride_a; // swap
+    w.stride_b_dim0       = prob.col_stride_a / 2; // swap; FP4 byte stride = elements / 2
     w.stride_b_scale_dim0 = prob.k / 32;
-    w.stride_c_dim0       = prob.col_stride_c; // swap
+    w.stride_c_dim0       = prob.col_stride_c;
     return w;
 }
 
@@ -280,23 +280,26 @@ rocblaslt_status runCustomKernel(std::shared_ptr<GemmKernel>        gemm,
     uint32_t tilesN = (static_cast<uint32_t>(prob.m) + tileN - 1) / tileN;
 
     dim3 grid;
+    dim3 block;
+    block.x = bs[0];
+    block.y = bs[1];
+    block.z = bs[2];
+
     if(isWaveKernel)
     {
+        // Wave compiler: M → grid dim 0 (x), N → grid dim 1 (y)
+        // hipModuleLaunchKernel takes grid as number of blocks
         grid.x = tilesM;
         grid.y = tilesN;
         grid.z = 1;
     }
     else
     {
-        grid.x = tilesM * bs[0];
-        grid.y = tilesN * bs[1];
+        // AITER: hipExtModuleLaunchKernel takes grid as total threads
+        grid.x = tilesN * bs[0];
+        grid.y = tilesM * bs[1];
         grid.z = 1;
     }
-
-    dim3 block;
-    block.x = bs[0];
-    block.y = bs[1];
-    block.z = bs[2];
 
     std::cout << "Launching kernel with grid: " << grid.x << " " << grid.y << " " << grid.z
               << " and block: " << block.x << " " << block.y << " " << block.z << std::endl;
@@ -314,25 +317,49 @@ rocblaslt_status runCustomKernel(std::shared_ptr<GemmKernel>        gemm,
                   << " error: " << hipGetErrorString(error) << std::endl;
         return rocblaslt_status_internal_error;
     }
-    if(hipError_t error = hipExtModuleLaunchKernel(function,
-                                                   grid.x,
-                                                   grid.y,
-                                                   grid.z,
-                                                   block.x,
-                                                   block.y,
-                                                   block.z,
-                                                   0, // sharedMem
-                                                   prob.stream, // stream
-                                                   nullptr,
-                                                   (void**)&hipLaunchParams,
-                                                   nullptr, // event
-                                                   nullptr // event
-                                                   ))
+
+    if(isWaveKernel)
     {
-        std::cerr << "hipExtModuleLaunchKernel in runCustomKernel failed: "
-                  << gemm->module->getKernelName() << std::endl
-                  << " error: " << hipGetErrorString(error) << std::endl;
-        return rocblaslt_status_internal_error;
+        if(hipError_t error = hipModuleLaunchKernel(function,
+                                                    grid.x,
+                                                    grid.y,
+                                                    grid.z,
+                                                    block.x,
+                                                    block.y,
+                                                    block.z,
+                                                    0, // sharedMem
+                                                    prob.stream, // stream
+                                                    nullptr,
+                                                    (void**)&hipLaunchParams))
+        {
+            std::cerr << "hipModuleLaunchKernel in runCustomKernel failed: "
+                      << gemm->module->getKernelName() << std::endl
+                      << " error: " << hipGetErrorString(error) << std::endl;
+            return rocblaslt_status_internal_error;
+        }
+    }
+    else
+    {
+        if(hipError_t error = hipExtModuleLaunchKernel(function,
+                                                       grid.x,
+                                                       grid.y,
+                                                       grid.z,
+                                                       block.x,
+                                                       block.y,
+                                                       block.z,
+                                                       0, // sharedMem
+                                                       prob.stream, // stream
+                                                       nullptr,
+                                                       (void**)&hipLaunchParams,
+                                                       nullptr, // event
+                                                       nullptr // event
+                                                       ))
+        {
+            std::cerr << "hipExtModuleLaunchKernel in runCustomKernel failed: "
+                      << gemm->module->getKernelName() << std::endl
+                      << " error: " << hipGetErrorString(error) << std::endl;
+            return rocblaslt_status_internal_error;
+        }
     }
 
     return rocblaslt_status_success;

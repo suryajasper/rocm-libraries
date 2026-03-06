@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Optional: <m> <n> <k> (default: 4096 8192 4096)
-m="${1:-4096}"
-n="${2:-8192}"
-k="${3:-4096}"
+# Optional: <m> <n> <k> (default: 256 256 256)
+m="${1:-256}"
+n="${2:-256}"
+k="${3:-256}"
 
 # Use the build's libhipblaslt and librocroller so the in-tree rocroller (with
 # Operations::Tensor 4-arg constructor) is loaded instead of /opt/rocm's older lib.
@@ -24,5 +24,4 @@ ninja hipblaslt-bench && ./clients/hipblaslt-bench \
     --compute_type f32_r \
     --rotating 0 --cold_iters 1 --iters 1 \
     --swizzleA \
-    --verify
- 
+    --verify 

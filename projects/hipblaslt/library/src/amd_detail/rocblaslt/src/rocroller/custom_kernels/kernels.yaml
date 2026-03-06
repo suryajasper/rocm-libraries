@@ -2,19 +2,19 @@
 # workgroup_size: tile dimensions [M, N, K]. block_size: HIP launch block [x, y, z] (reqd_workgroup_size).
 # Add new kernels here and ensure the .co file is in the custom_kernels directory (or subdir).
 kernels:
-  # - name: wave_gemm_mxfp4_dynamic_128x256x256
-  #   workgroup_size: [128, 256, 256]
-  #   block_size: [64, 4, 1]
-  #   entry_function: wave_gemm_dynamic_128x256x256
-  #   shuffle: true
-  #   kernel_type: mxfp4
-
-  - name: wave_gemm_mxfp4_static_256x256x256
+  - name: wave_gemm_mxfp4_dynamic_256x256x256
     workgroup_size: [128, 256, 256]
     block_size: [64, 4, 1]
-    entry_function: wave_gemm_static_16k_256x256x256
+    entry_function: wave_gemm_dynamic_256x256x256
     shuffle: true
     kernel_type: mxfp4
+
+  # - name: wave_gemm_mxfp4_static_256x256x256
+  #   workgroup_size: [128, 256, 256]
+  #   block_size: [64, 4, 1]
+  #   entry_function: wave_gemm_static_16k_256x256x256
+  #   shuffle: true
+  #   kernel_type: mxfp4
 
   # # aiter 32xN kernels
   # - name: aiter_gemm_bpreshuffle_32x128x256
