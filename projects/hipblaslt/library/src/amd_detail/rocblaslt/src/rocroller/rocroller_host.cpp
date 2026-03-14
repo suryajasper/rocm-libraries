@@ -514,7 +514,7 @@ rocblaslt_status
             break;
 
         index = parametersToIndex(solutionIndexParameter);
-        
+
         // Validate problem dimensions match kernel tile requirements before generating kernel
         // to avoid ocRoller expression evaluation with invalid dimensions
         if(solutionIndexParameter.workgroupTile.m > 0 && solutionIndexParameter.workgroupTile.n > 0
@@ -524,12 +524,12 @@ rocblaslt_status
                || prob.n % solutionIndexParameter.workgroupTile.n != 0
                || prob.k % solutionIndexParameter.workgroupTile.k != 0)
             {
-                continue;  // Skip this solution entirely
+                continue; // Skip this solution entirely
             }
         }
 
-        auto existingSolution
-            = rocroller_handle->cache.getKernel(kernelType, solutionIndexParameter);
+        auto existingSolution = rocroller_handle->cache.getKernel(
+            kernelType, solutionIndexParameter, ProblemDims{prob.m, prob.n, prob.k});
         std::shared_ptr<GemmKernel> kernel;
         // If kernel doesn't already exist, generate it
         if(!existingSolution)
@@ -626,7 +626,8 @@ rocblaslt_status getKernelFromAlgo(rocblaslt_handle                   handle,
     auto             kernelType       = genKernelType(prob);
 
     auto solutionIndexParameters = indexToParameters(*solutionIndex);
-    auto existingKernel = rocroller_handle->cache.getKernel(kernelType, solutionIndexParameters);
+    auto existingKernel          = rocroller_handle->cache.getKernel(
+        kernelType, solutionIndexParameters, ProblemDims{prob.m, prob.n, prob.k});
     if(existingKernel)
     {
         kernel = *existingKernel;
