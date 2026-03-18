@@ -226,7 +226,6 @@ std::vector<SolutionIndexParameters> chooseSolutionIndexParameters(
         int               unrollAmount  = preferredUnrolling(
             kernelType.typeA, kernelType.typeB, wgt, hasPreSwizzle, hasPreTile);
         wgt.k /= unrollAmount;
-        std::cout<<"Workgroup Tile:"<<wgt.m<<"x"<<wgt.n<<"x"<<wgt.k<<std::endl;
 
         if((requestedAlgoCount == -1)
            || (prob.m % wgt.m == 0 && prob.n % wgt.n == 0 && prob.k % wgt.k == 0))
