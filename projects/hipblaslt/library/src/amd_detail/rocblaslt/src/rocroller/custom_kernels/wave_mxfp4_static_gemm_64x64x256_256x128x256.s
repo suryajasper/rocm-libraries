@@ -120,8 +120,8 @@ wave_mxfp4_static_gemm_64x64x256_256x128x256:
 	buffer_load_dword v8, v8, s[20:23], 0 offen
 	v_cmp_eq_u32_e32 vcc, 0, v4
 	s_and_b64 s[2:3], vcc, exec
-	s_barrier
 	s_waitcnt vmcnt(0)
+	s_barrier
 	s_cbranch_scc1 .LBB0_4
 	s_barrier
 	s_load_dwordx2 s[0:1], s[0:1], 0x48
