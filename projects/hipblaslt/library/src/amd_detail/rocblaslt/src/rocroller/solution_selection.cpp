@@ -151,7 +151,7 @@ std::vector<origami::config_t> getTileListForKernelType(const KernelType& kernel
         = (kernelType.scaleTypeA.preTile.size() == 2 && kernelType.scaleTypeB.preTile.size() == 2);
 
     // Use swizzle tile sizes only for FP4 x FP4 with swizzleB enabled
-    if(kernelType.swizzleB && kernelType.typeA == rocRoller::DataType::FP4
+    if(kernelType.swizzleA && kernelType.typeA == rocRoller::DataType::FP4
        && kernelType.typeB == rocRoller::DataType::FP4)
     {
         return fp4SwizzleTileGenerator(hasPreSwizzle, hasPreTile);
