@@ -64,31 +64,10 @@ set(CUSTOM_KERNEL_ASM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_dynamic_gemm_256x192x256.s
     ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_dynamic_gemm_256x224x256.s
     ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_dynamic_gemm_64x64x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x160x256_13568x14720x8704.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x160x256_1536x3200x10496.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x160x256_168448x3200x6400.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x160x256_6656x2560x3328.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x192x256_1280x64896x60672.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x192x256_13056x43392x1792.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x192x256_16896x31104x7168.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x192x256_1792x5376x4096.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x192x256_2048x6144x4608.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x192x256_4096x4224x768.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x192x256_4864x4992x7168.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x192x256_51712x14976x7680.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x224x256_5376x1792x4096.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_256x224x256_7168x6272x5888.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_128x128x49920.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_128x256x1024.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_128x256x256.s
     ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_1792x512x7424.s
     ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_256x128x1024.s
     ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_256x128x256.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_256x35200x19968.s
     ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_256x640x768.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_35200x256x19968.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_512x1792x7424.s
-    ${CMAKE_CURRENT_SOURCE_DIR}/wave_mxfp4_static_gemm_64x64x256_640x256x768.s
     # --- END AUTO-GENERATED WAVE KERNELS ---
 )
 

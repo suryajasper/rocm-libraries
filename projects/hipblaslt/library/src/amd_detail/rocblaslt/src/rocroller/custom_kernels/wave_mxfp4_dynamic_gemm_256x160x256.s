@@ -853,7 +853,7 @@ wave_mxfp4_dynamic_gemm_256x160x256:
 	s_cselect_b64 s[8:9], -1, 0
 	v_add3_u32 v117, v117, v1, v21
 	s_and_b64 vcc, exec, s[8:9]
-	s_waitcnt vmcnt(0)
+	s_waitcnt vmcnt(12)
 	s_barrier
 	s_cbranch_vccnz .LBB0_11
 	s_barrier

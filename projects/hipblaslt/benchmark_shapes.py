@@ -9,6 +9,7 @@ import csv
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -62,12 +63,21 @@ def build_bench(jobs: int = 0):
 
 
 def run_one(
-    m: int, n: int, k: int, iters: int, env: dict, gpu_queue: queue.Queue | None = None
+    m: int,
+    n: int,
+    k: int,
+    iters: int,
+    env: dict,
+    gpu_queue: queue.Queue | None = None,
+    rocprof_out_dir: Path | None = None,
+    att_library_path: str | None = None,
 ) -> dict:
     """Run hipblaslt-bench for a single shape and return parsed results.
 
     If gpu_queue is provided, acquires a GPU ID from it for the duration of
     the run, setting HIP_VISIBLE_DEVICES accordingly.
+    If rocprof_out_dir is set, wraps the command with rocprofv3 --att and
+    saves ATT traces into rocprof_out_dir.
     """
     gpu_id = None
     if gpu_queue is not None:
@@ -118,6 +128,21 @@ def run_one(
         "--swizzleA",
         "--verify",
     ]
+
+    if rocprof_out_dir is not None:
+        trace_dir = rocprof_out_dir / f"{m}x{n}x{k}"
+        if trace_dir.exists():
+            shutil.rmtree(trace_dir)
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        rocprof_prefix = [
+            "rocprofv3",
+            "--att",
+            "-d", str(trace_dir),
+        ]
+        if att_library_path:
+            rocprof_prefix.extend(["--att-library-path", att_library_path])
+        rocprof_prefix.append("--")
+        cmd = rocprof_prefix + cmd
 
     try:
         result = subprocess.run(
@@ -265,6 +290,19 @@ def main():
         default=1,
         help="Number of GPUs to run benchmarks on in parallel (default: 1)",
     )
+    parser.add_argument(
+        "--rocprof",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="Wrap hipblaslt-bench with rocprofv3 --att; save ATT traces under DIR/<MxNxK>/",
+    )
+    parser.add_argument(
+        "--att-library-path",
+        type=str,
+        default=os.environ.get("ATT_LIBRARY_PATH"),
+        help="Path to rocprof-trace-decoder lib (default: $ATT_LIBRARY_PATH)",
+    )
     args = parser.parse_args()
 
     if not args.no_build:
@@ -308,6 +346,16 @@ def main():
 
     total = len(tagged_shapes)
     num_gpus = max(1, args.num_gpus)
+    rocprof_out_dir = Path(args.rocprof) if args.rocprof else None
+    att_library_path = args.att_library_path
+    if rocprof_out_dir is not None:
+        rocprof_out_dir.mkdir(parents=True, exist_ok=True)
+        if num_gpus > 1:
+            print(
+                "Warning: --rocprof ATT tracing forces single-GPU mode (num_gpus=1)",
+                file=sys.stderr,
+            )
+            num_gpus = 1
     print_lock = threading.Lock()
 
     if num_gpus == 1:
@@ -318,7 +366,11 @@ def main():
                 f"[{i}/{total}] Benchmarking m={m} n={n} k={k}{tag_str} ...",
                 file=sys.stderr,
             )
-            row = run_one(m, n, k, args.iters, env)
+            row = run_one(
+                m, n, k, args.iters, env,
+                rocprof_out_dir=rocprof_out_dir,
+                att_library_path=att_library_path,
+            )
             if has_tags:
                 row["tag"] = tag
             results.append(row)
@@ -341,7 +393,11 @@ def main():
         completed = [0]
 
         def _run(idx, tag, m, n, k):
-            row = run_one(m, n, k, args.iters, env, gpu_queue=gpu_q)
+            row = run_one(
+                m, n, k, args.iters, env, gpu_queue=gpu_q,
+                rocprof_out_dir=rocprof_out_dir,
+                att_library_path=att_library_path,
+            )
             if has_tags:
                 row["tag"] = tag
             with print_lock:

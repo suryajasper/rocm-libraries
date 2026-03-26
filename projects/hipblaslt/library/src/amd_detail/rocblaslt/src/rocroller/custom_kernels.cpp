@@ -471,17 +471,17 @@ void preloadCustomKernels(SolutionCache& cache)
                     getCoPath() / "rr_custom_kernels.co"));
 
             // --- BEGIN AUTO-GENERATED WAVE KERNELS (do not edit manually) ---
-            // mxfp4Kernel.swizzleA = true;
+            mxfp4Kernel.swizzleA = true;
 
-            // params.workgroupTile = {192, 256, 256};
-            // cache.addKernel(
-            //     mxfp4Kernel,
-            //     params,
-            //     createCustomGemmKernel("wave_mxfp4_dynamic_gemm_256x192x256",
-            //                            mxfp4Kernel,
-            //                            params.workgroupTile,
-            //                            {256, 2, 1},
-            //                            getCoPath() / "rr_custom_kernels.co"));
+            params.workgroupTile = {192, 256, 256};
+            cache.addKernel(
+                mxfp4Kernel,
+                params,
+                createCustomGemmKernel("wave_mxfp4_dynamic_gemm_256x192x256",
+                                       mxfp4Kernel,
+                                       params.workgroupTile,
+                                       {128, 2, 1},
+                                       getCoPath() / "rr_custom_kernels.co"));
 
             // --- END AUTO-GENERATED WAVE KERNELS ---
         }
