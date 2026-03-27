@@ -68,6 +68,7 @@ def run_one(
     k: int,
     iters: int,
     env: dict,
+    cold_iters: int = 2,
     gpu_queue: queue.Queue | None = None,
     rocprof_out_dir: Path | None = None,
     att_library_path: str | None = None,
@@ -122,7 +123,7 @@ def run_one(
         "--rotating",
         "0",
         "--cold_iters",
-        "2",
+        str(cold_iters),
         "--iters",
         str(iters),
         "--swizzleA",
@@ -261,12 +262,20 @@ def run_one(
 
 
 def load_shapes_file(path):
-    """Load tagged shapes from a CSV file with columns: tag,m,n,k"""
+    """Load tagged shapes from a CSV file.
+
+    Required columns: tag, m, n, k
+    Optional columns: cold_iters, iters (per-shape iteration counts)
+    """
     tagged = []
     with open(path) as f:
         reader = csv.DictReader(f)
         for row in reader:
-            tagged.append((row["tag"], int(row["m"]), int(row["n"]), int(row["k"])))
+            cold = int(row["cold_iters"]) if row.get("cold_iters") else None
+            warm = int(row["iters"]) if row.get("iters") else None
+            tagged.append(
+                (row["tag"], int(row["m"]), int(row["n"]), int(row["k"]), cold, warm)
+            )
     return tagged
 
 
@@ -317,16 +326,18 @@ def main():
             if len(parts) != 3:
                 print(f"Invalid shape: {s}, expected MxNxK", file=sys.stderr)
                 sys.exit(1)
-            tagged_shapes.append(("", int(parts[0]), int(parts[1]), int(parts[2])))
+            tagged_shapes.append(
+                ("", int(parts[0]), int(parts[1]), int(parts[2]), None, None)
+            )
     else:
-        tagged_shapes = [("", m, n, k) for m, n, k in DEFAULT_SHAPES]
+        tagged_shapes = [("", m, n, k, None, None) for m, n, k in DEFAULT_SHAPES]
 
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = f"{BUILD_DIR}/library:{BUILD_DIR}/rocroller" + (
         f":{env['LD_LIBRARY_PATH']}" if env.get("LD_LIBRARY_PATH") else ""
     )
 
-    has_tags = any(t for t, *_ in tagged_shapes)
+    has_tags = any(t for t, m, n, k, ci, wi in tagged_shapes)
     csv_fields = (["tag"] if has_tags else []) + [
         "m",
         "n",
@@ -360,14 +371,18 @@ def main():
 
     if num_gpus == 1:
         results = []
-        for i, (tag, m, n, k) in enumerate(tagged_shapes, 1):
+        for i, (tag, m, n, k, ci, wi) in enumerate(tagged_shapes, 1):
+            shape_iters = wi if wi is not None else args.iters
+            shape_cold = ci if ci is not None else 2
             tag_str = f" [{tag}]" if tag else ""
             print(
-                f"[{i}/{total}] Benchmarking m={m} n={n} k={k}{tag_str} ...",
+                f"[{i}/{total}] Benchmarking m={m} n={n} k={k}{tag_str}"
+                f" (cold={shape_cold}, iters={shape_iters}) ...",
                 file=sys.stderr,
             )
             row = run_one(
-                m, n, k, args.iters, env,
+                m, n, k, shape_iters, env,
+                cold_iters=shape_cold,
                 rocprof_out_dir=rocprof_out_dir,
                 att_library_path=att_library_path,
             )
@@ -392,9 +407,13 @@ def main():
         results = [None] * total
         completed = [0]
 
-        def _run(idx, tag, m, n, k):
+        def _run(idx, tag, m, n, k, ci, wi):
+            shape_iters = wi if wi is not None else args.iters
+            shape_cold = ci if ci is not None else 2
             row = run_one(
-                m, n, k, args.iters, env, gpu_queue=gpu_q,
+                m, n, k, shape_iters, env,
+                cold_iters=shape_cold,
+                gpu_queue=gpu_q,
                 rocprof_out_dir=rocprof_out_dir,
                 att_library_path=att_library_path,
             )
@@ -412,7 +431,8 @@ def main():
                 print(
                     f"[{completed[0]}/{total}] m={m} n={n} k={k}{tag_str}"
                     f"  -> {status}  source={src}  tile={t}  {tflops} TFLOPS  {us} us"
-                    f"  verify={corr}",
+                    f"  verify={corr}"
+                    f"  (cold={shape_cold}, iters={shape_iters})",
                     file=sys.stderr,
                 )
             return idx, row
@@ -420,8 +440,8 @@ def main():
         print(f"Running {total} benchmarks across {num_gpus} GPUs ...", file=sys.stderr)
         with ThreadPoolExecutor(max_workers=num_gpus) as pool:
             futures = [
-                pool.submit(_run, i, tag, m, n, k)
-                for i, (tag, m, n, k) in enumerate(tagged_shapes)
+                pool.submit(_run, i, tag, m, n, k, ci, wi)
+                for i, (tag, m, n, k, ci, wi) in enumerate(tagged_shapes)
             ]
             for fut in as_completed(futures):
                 idx, row = fut.result()

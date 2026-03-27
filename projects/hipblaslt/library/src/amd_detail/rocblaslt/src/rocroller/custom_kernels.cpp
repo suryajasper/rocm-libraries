@@ -473,6 +473,16 @@ void preloadCustomKernels(SolutionCache& cache)
             // --- BEGIN AUTO-GENERATED WAVE KERNELS (do not edit manually) ---
             mxfp4Kernel.swizzleA = true;
 
+            params.workgroupTile = {64, 64, 256};
+            cache.addKernel(
+                mxfp4Kernel,
+                params,
+                createCustomGemmKernel("wave_mxfp4_dynamic_gemm_64x64x256",
+                                       mxfp4Kernel,
+                                       params.workgroupTile,
+                                       {128, 2, 1},
+                                       getCoPath() / "rr_custom_kernels.co"));
+
             params.workgroupTile = {192, 256, 256};
             cache.addKernel(
                 mxfp4Kernel,
