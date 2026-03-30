@@ -11,6 +11,7 @@
 #include <rocRoller/Operations/Scratch_fwd.hpp>
 #include <rocRoller/TensorDescriptor.hpp>
 
+#include <functional>
 #include <map>
 #include <optional>
 
@@ -91,6 +92,10 @@ struct ShapeCondition
     std::optional<size_t> minN, maxN;
     std::optional<size_t> minK, maxK;
 
+    // Optional custom predicate for conditions that cannot be expressed as
+    // simple per-axis ranges (e.g. power-of-2 tile counts, M*N thresholds).
+    std::function<bool(size_t, size_t, size_t)> customMatcher;
+
     bool matches(size_t m, size_t n, size_t k) const
     {
         if(minM && m < *minM)
@@ -104,6 +109,8 @@ struct ShapeCondition
         if(minK && k < *minK)
             return false;
         if(maxK && k >= *maxK)
+            return false;
+        if(customMatcher && !customMatcher(m, n, k))
             return false;
         return true;
     }

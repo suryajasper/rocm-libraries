@@ -484,14 +484,27 @@ void preloadCustomKernels(SolutionCache& cache)
                                        getCoPath() / "rr_custom_kernels.co"));
 
             params.workgroupTile = {192, 256, 256};
-            cache.addKernel(
-                mxfp4Kernel,
-                params,
-                createCustomGemmKernel("wave_mxfp4_dynamic_gemm_256x192x256",
-                                       mxfp4Kernel,
-                                       params.workgroupTile,
-                                       {128, 2, 1},
-                                       getCoPath() / "rr_custom_kernels.co"));
+            {
+                ShapeCondition wave192Condition;
+                wave192Condition.customMatcher = [](size_t m, size_t n, size_t k) {
+                    // Wave 192x256x256 outperforms aiter when N-dimension tiles
+                    // (n/256) align to a power of 2 and total tile count is >= 256.
+                    // Empirically validated across K-sweeps and M/N-sweeps.
+                    size_t tilesN = n / 256;
+                    size_t tilesM = m / 192;
+                    bool   pow2N  = tilesN > 0 && (tilesN & (tilesN - 1)) == 0;
+                    return pow2N && tilesN >= 16 && tilesM * tilesN >= 256;
+                };
+                cache.addKernel(
+                    mxfp4Kernel,
+                    params,
+                    createCustomGemmKernel("wave_mxfp4_dynamic_gemm_256x192x256",
+                                           mxfp4Kernel,
+                                           params.workgroupTile,
+                                           {128, 2, 1},
+                                           wave192Condition,
+                                           getCoPath() / "rr_custom_kernels.co"));
+            }
 
             // --- END AUTO-GENERATED WAVE KERNELS ---
         }
